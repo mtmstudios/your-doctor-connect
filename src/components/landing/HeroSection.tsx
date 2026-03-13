@@ -54,20 +54,24 @@ const HeroSection = () => {
             transition={{ duration: 0.6, delay: 0.1 }}
           >
             Facharzt-Termin in{" "}
-            <span className="inline-block relative overflow-hidden align-bottom" style={{ minWidth: "7ch", height: "1.15em" }}>
-              <AnimatePresence mode="popLayout">
-                <motion.span
-                  key={CITIES[cityIndex]}
-                  className="absolute left-0 bg-clip-text text-transparent gradient-hero whitespace-nowrap"
-                  initial={{ y: "100%", opacity: 0 }}
-                  animate={{ y: "0%", opacity: 1 }}
-                  exit={{ y: "-100%", opacity: 0 }}
-                  transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
-                >
-                  {CITIES[cityIndex]}
-                </motion.span>
-              </AnimatePresence>
-            </span>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={CITIES[cityIndex]}
+                style={{
+                  background: "linear-gradient(to right, #2563EB, #10B981)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                  display: "inline-block",
+                }}
+                initial={{ y: 30, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -30, opacity: 0 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+              >
+                {CITIES[cityIndex]}
+              </motion.span>
+            </AnimatePresence>
           </motion.h1>
 
           <motion.p
