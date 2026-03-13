@@ -1,0 +1,145 @@
+{
+  "name": "ZumArzt — 03 Flash-Termin Börse",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zumarzt-cancellation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-cancel",
+      "name": "Webhook Absage",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/bookings?id=eq.={{ $json.body.bookingId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"status\": \"cancelled\", \"cancelled_at\": \"{{ new Date().toISOString() }}\" }",
+        "options": {}
+      },
+      "id": "cancel-booking",
+      "name": "Buchung stornieren",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/availability_slots?id=eq.={{ $json.body.slotId }}&select=*,practices(*)",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-slot",
+      "name": "Slot-Details laden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/waitlist?practice_id=eq.={{ $json.body.practiceId }}&notified=eq.false&select=*&order=created_at.asc&limit=10",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-waitlist",
+      "name": "Warteliste laden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const waitlist = $input.all();\nconst slot = $('Slot-Details laden').first().json[0];\nconst practice = slot?.practices;\n\nif (!waitlist.length || !slot) return [];\n\nreturn waitlist.map(w => ({\n  json: {\n    phone: w.json.patient_phone,\n    email: w.json.patient_email,\n    name: w.json.patient_name,\n    waitlistId: w.json.id,\n    message: `⚡ ZumArzt Flash-Termin: ${practice?.name} hat heute einen Termin frei (${slot.start_time?.slice(11,16)} Uhr). Jetzt buchen: https://zumarzt.de/flash/${slot.id}`\n  }\n}));"
+      },
+      "id": "prepare-notifications",
+      "name": "Benachrichtigungen vorbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/={{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "form",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "From", "value": "={{ $env.TWILIO_PHONE_NUMBER }}" },
+            { "name": "To", "value": "={{ $json.phone }}" },
+            { "name": "Body", "value": "={{ $json.message }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-flash-sms",
+      "name": "Flash-SMS senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"notified\": {{ $('Warteliste laden').all().length }} }"
+      },
+      "id": "respond-flash",
+      "name": "Ergebnis zurückmelden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Absage": {
+      "main": [[{ "node": "Buchung stornieren", "type": "main", "index": 0 }]]
+    },
+    "Buchung stornieren": {
+      "main": [[{ "node": "Slot-Details laden", "type": "main", "index": 0 }]]
+    },
+    "Slot-Details laden": {
+      "main": [[{ "node": "Warteliste laden", "type": "main", "index": 0 }]]
+    },
+    "Warteliste laden": {
+      "main": [[{ "node": "Benachrichtigungen vorbereiten", "type": "main", "index": 0 }]]
+    },
+    "Benachrichtigungen vorbereiten": {
+      "main": [[{ "node": "Flash-SMS senden", "type": "main", "index": 0 }]]
+    },
+    "Flash-SMS senden": {
+      "main": [[{ "node": "Ergebnis zurückmelden", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": true
+}

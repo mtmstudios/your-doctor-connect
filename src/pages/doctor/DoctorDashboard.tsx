@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/landing/Navbar";
-import { useAuth } from "@/lib/auth";
+import { useAuth, DEMO_PRACTICE, DEMO_BOOKINGS } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import {
   Calendar, Users, TrendingUp, Star, CheckCircle2, XCircle,
-  Clock, Bell, Settings, LogOut, FileText, ChevronRight, AlertTriangle,
+  Clock, Bell, Settings, LogOut, FileText, ChevronRight, AlertTriangle, Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -25,7 +25,7 @@ interface Booking {
 }
 
 const DoctorDashboard = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, doctorDemo } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [practice, setPractice] = useState<any>(null);
@@ -33,6 +33,13 @@ const DoctorDashboard = () => {
   const [confirmNoShow, setConfirmNoShow] = useState<string | null>(null);
 
   useEffect(() => {
+    // Doctor demo mode — use mock data instantly
+    if (doctorDemo) {
+      setPractice(DEMO_PRACTICE);
+      setBookings(DEMO_BOOKINGS as any);
+      setLoading(false);
+      return;
+    }
     if (!user) return;
     const load = async () => {
       try {
@@ -51,7 +58,7 @@ const DoctorDashboard = () => {
       }
     };
     load();
-  }, [user]);
+  }, [user, doctorDemo]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -94,6 +101,17 @@ const DoctorDashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+
+      {/* Doctor Demo Banner */}
+      {doctorDemo && (
+        <div className="bg-blue-600 text-white text-center py-2 px-4 text-sm flex items-center justify-center gap-2">
+          <Zap className="w-4 h-4" />
+          <span>Demo-Modus aktiv — Arzt-Dashboard mit Beispieldaten</span>
+          <button onClick={handleSignOut} className="ml-4 underline text-blue-200 hover:text-white text-xs">
+            Beenden
+          </button>
+        </div>
+      )}
 
       {/* No-show confirmation modal */}
       {confirmNoShow && (

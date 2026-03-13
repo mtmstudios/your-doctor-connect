@@ -1,0 +1,125 @@
+{
+  "name": "ZumArzt — 02 Buchung verarbeiten",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "zumarzt-booking",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-booking",
+      "name": "Webhook Buchung",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst uuid = crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase();\nconst bookingCode = 'ZA-' + uuid;\nreturn [{ json: { ...body, booking_code: bookingCode, status: 'bestaetigt' } }];"
+      },
+      "id": "gen-code",
+      "name": "Buchungscode generieren",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/bookings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $env.SUPABASE_SERVICE_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=representation" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"practice_id\": \"{{ $json.practiceId }}\",\n  \"patient_id\": \"{{ $json.patientId }}\",\n  \"patient_name\": \"{{ $json.patientName }}\",\n  \"patient_email\": \"{{ $json.patientEmail }}\",\n  \"patient_phone\": \"{{ $json.patientPhone }}\",\n  \"notes\": \"{{ $json.notes }}\",\n  \"status\": \"bestaetigt\",\n  \"booking_code\": \"{{ $json.booking_code }}\"\n}",
+        "options": {}
+      },
+      "id": "save-supabase",
+      "name": "In Supabase speichern",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/={{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "form",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "From", "value": "={{ $env.TWILIO_PHONE_NUMBER }}" },
+            { "name": "To", "value": "={{ $json.patientPhone }}" },
+            { "name": "Body", "value": "=✅ ZumArzt: Dein Termin am {{ $json.slotDate }} um {{ $json.slotTime }} Uhr wurde bestätigt. Code: {{ $json.booking_code }}. Bei Fragen: support@zumarzt.de" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sms-patient",
+      "name": "SMS an Patient",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.RESEND_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"from\": \"ZumArzt <noreply@zumarzt.de>\",\n  \"to\": [\"{{ $json.doctorEmail }}\"],\n  \"subject\": \"Neue Buchung: {{ $json.patientName }} am {{ $json.slotDate }}\",\n  \"html\": \"<h2>Neue Buchung eingegangen</h2><p><strong>Patient:</strong> {{ $json.patientName }}</p><p><strong>Termin:</strong> {{ $json.slotDate }} um {{ $json.slotTime }} Uhr</p><p><strong>Buchungscode:</strong> {{ $json.booking_code }}</p><p><strong>Notizen:</strong> {{ $json.notes || 'Keine' }}</p>\"\n}",
+        "options": {}
+      },
+      "id": "email-doctor",
+      "name": "E-Mail an Arzt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [720, 540]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"success\": true, \"booking_code\": \"{{ $('Buchungscode generieren').first().json.booking_code }}\" }"
+      },
+      "id": "respond-booking",
+      "name": "Erfolg zurückmelden",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 380]
+    }
+  ],
+  "connections": {
+    "Webhook Buchung": {
+      "main": [[{ "node": "Buchungscode generieren", "type": "main", "index": 0 }]]
+    },
+    "Buchungscode generieren": {
+      "main": [[
+        { "node": "In Supabase speichern", "type": "main", "index": 0 },
+        { "node": "SMS an Patient", "type": "main", "index": 0 },
+        { "node": "E-Mail an Arzt", "type": "main", "index": 0 }
+      ]]
+    },
+    "SMS an Patient": {
+      "main": [[{ "node": "Erfolg zurückmelden", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": true
+}
