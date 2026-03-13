@@ -1,11 +1,35 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Logo from "@/components/Logo";
+
+const CITIES = [
+  "Stuttgart",
+  "Mannheim",
+  "Karlsruhe",
+  "Freiburg",
+  "Ulm",
+  "Heidelberg",
+  "Heilbronn",
+  "Tübingen",
+  "Reutlingen",
+  "Ludwigsburg",
+  "Esslingen",
+  "Pforzheim",
+];
 
 const HeroSection = () => {
   const navigate = useNavigate();
+  const [cityIndex, setCityIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCityIndex((i) => (i + 1) % CITIES.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <section className="relative min-h-[90vh] flex items-center overflow-hidden">
@@ -30,7 +54,20 @@ const HeroSection = () => {
             transition={{ duration: 0.6, delay: 0.1 }}
           >
             Facharzt-Termin in{" "}
-            <span className="bg-clip-text text-transparent gradient-hero">60 Sekunden</span>
+            <span className="inline-block relative overflow-hidden align-bottom" style={{ minWidth: "7ch", height: "1.15em" }}>
+              <AnimatePresence mode="popLayout">
+                <motion.span
+                  key={CITIES[cityIndex]}
+                  className="absolute left-0 bg-clip-text text-transparent gradient-hero whitespace-nowrap"
+                  initial={{ y: "100%", opacity: 0 }}
+                  animate={{ y: "0%", opacity: 1 }}
+                  exit={{ y: "-100%", opacity: 0 }}
+                  transition={{ duration: 0.45, ease: [0.33, 1, 0.68, 1] }}
+                >
+                  {CITIES[cityIndex]}
+                </motion.span>
+              </AnimatePresence>
+            </span>
           </motion.h1>
 
           <motion.p
