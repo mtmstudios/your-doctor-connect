@@ -6,6 +6,7 @@ import { Mail, Lock } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/landing/Navbar";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const PatientLogin = () => {
   const [email, setEmail] = useState("");
@@ -14,12 +15,23 @@ const PatientLogin = () => {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      toast.error("Bitte E-Mail und Passwort eingeben.");
+      return;
+    }
     setLoading(true);
-    // TODO: Supabase auth
-    await new Promise((r) => setTimeout(r, 1000));
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
+    if (error) {
+      toast.error("Anmeldung fehlgeschlagen: " + error.message);
+      return;
+    }
     toast.success("Erfolgreich angemeldet!");
     navigate("/app/patient/dashboard");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleLogin();
   };
 
   return (
@@ -34,22 +46,38 @@ const PatientLogin = () => {
             <Label>E-Mail</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-              <Input className="pl-10" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="max@beispiel.de" />
+              <Input
+                className="pl-10"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="max@beispiel.de"
+              />
             </div>
           </div>
           <div className="space-y-2">
             <Label>Passwort</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-              <Input className="pl-10" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+              <Input
+                className="pl-10"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="••••••••"
+              />
             </div>
           </div>
           <Button className="w-full py-6" disabled={loading} onClick={handleLogin}>
-            {loading ? "Laden..." : "Anmelden"}
+            {loading ? "Anmelden..." : "Anmelden"}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             Noch kein Konto?{" "}
-            <Link to="/app/patient/register" className="text-primary font-medium hover:underline">Registrieren</Link>
+            <Link to="/app/patient/register" className="text-primary font-medium hover:underline">
+              Registrieren
+            </Link>
           </p>
         </div>
       </div>
