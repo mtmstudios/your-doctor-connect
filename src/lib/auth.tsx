@@ -1,27 +1,49 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { supabase, isSupabaseConfigured } from "./supabase";
+
+const DEMO_KEY = "zumarzt_demo_mode";
+
+export const enableDemoMode = () => localStorage.setItem(DEMO_KEY, "1");
+export const disableDemoMode = () => localStorage.removeItem(DEMO_KEY);
+export const isDemoMode = () => localStorage.getItem(DEMO_KEY) === "1";
+
+// Fake demo user so components that use useAuth().user don't break
+const DEMO_USER: Partial<User> = {
+  id: "demo-user-id",
+  email: "demo@zumarzt.de",
+  user_metadata: { full_name: "Demo Patient" },
+};
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  demo: boolean;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
-  loading: true,
+  loading: false,
+  demo: false,
   signOut: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [demo, setDemo] = useState(isDemoMode());
 
   useEffect(() => {
-    if (!supabase) {
+    // If demo mode is already active, no Supabase needed
+    if (isDemoMode()) {
+      setLoading(false);
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
       setLoading(false);
       return;
     }
@@ -29,7 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -39,13 +61,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signOut = async () => {
-    if (supabase) {
+    if (demo) {
+      disableDemoMode();
+      setDemo(false);
+      return;
+    }
+    if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     }
   };
 
+  const user = demo
+    ? (DEMO_USER as User)
+    : (session?.user ?? null);
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, demo, signOut }}>
       {children}
     </AuthContext.Provider>
   );

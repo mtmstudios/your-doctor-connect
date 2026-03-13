@@ -1,8 +1,14 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, loading } = useAuth();
+  const { session, loading, demo } = useAuth();
+
+  // Demo mode OR Lovable preview (no Supabase) → always render
+  if (demo || !isSupabaseConfigured) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (
