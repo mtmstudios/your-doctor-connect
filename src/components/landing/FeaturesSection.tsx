@@ -48,13 +48,13 @@ const FeaturesSection = () => {
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
             >
-              <div className="w-14 h-14 rounded-xl gradient-hero flex items-center justify-center mb-6">
+              <div className="w-14 h-14 rounded-xl gradient-hero flex items-center justify-center mb-6 mx-auto">
                 <feature.icon className="w-7 h-7 text-primary-foreground" />
               </div>
-              <h3 className="text-xl font-semibold text-card-foreground mb-3">
+              <h3 className="text-xl font-semibold text-card-foreground mb-3 text-center">
                 {feature.title}
               </h3>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="text-muted-foreground leading-relaxed text-center">
                 {feature.description}
               </p>
             </motion.div>
